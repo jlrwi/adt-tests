@@ -1,5 +1,5 @@
 {
-  "name": "adt_tests",
+  "name": "@jlrwi/adt_tests",
   "version": "1.0.0",
   "description": "JSCheck tests for different Static Land algebras",
   "main": "index.js",
