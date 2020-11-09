@@ -24,6 +24,7 @@ import {
     type_check
 } from "@jlrwi/esfunctions";
 
+// Definitions of tests for each ADT
 const functor = [
     {
         name: "Functor: Identity",
@@ -733,42 +734,57 @@ const resolve_object = object_map (function (val) {
 
 // Run a comparison test producing a boolean result
 // Optional input invokes left and right if they are functions
-// {} -> boolean
-const run_test = function ({left, right, compare_with, input}) {
+// verdict -> {} -> verdict(boolean)
+const default_predicate = function (verdict) {
+    return function ({left, right, compare_with, input}) {
 
-    if (input === undefined) {
-        return compare_with (left) (right);
-    }
+        let result_left;
+        let result_right;
 
-    if (type_check ("function") (input)) {
-        input = input ();
-    }
+        // The usual behavior except when left and right are functions
+        if (input === undefined) {
 
-    return compare_with (left (input)) (right (input));
+            result_left = left;
+            result_right = right;
+
+        } else {
+
+            // Strip any function wrapper
+            if (type_check ("function") (input)) {
+                input = input ();
+            }
+
+            result_left = left (input);
+            result_right = right (input);
+        }
+
+// lose the test if either result undefined
+        if ((result_left === undefined) || (result_right === undefined)) {
+            return;
+        }
+
+        return verdict(compare_with (result_left) (result_right));
+    };
 };
 
-// Takes a test spec object and a test specifier function and returns a
-// JSCheck predicate
-// {spec} -> (T->args->{left, right}) -> (verdict->args->verdict(boolean))
-const predicate_builder = function ({T, compare_with, input}) {
+// Takes a test spec object, a test specifier function, and specifier
+// and returns a test object
+// {spec} -> (T->args->{left, right}) -> {args}-> {test obj}
+const test_prep = function ({T, compare_with, input}) {
     return function (test) {
-        return function (verdict) {
-            return pipeN(
-                resolve_object,
-                test.evaluator (T),
-                object_concat ({
-                    compare_with: first_value(
-                        test.compare_with,
-                        compare_with,
-                        T.equals,
-                        equals
-                    ),
-                    input
-                }),
-                run_test,
-                verdict
-            );
-        };
+        return pipeN(
+            resolve_object,
+            test.evaluator (T),
+            object_concat ({
+                compare_with: first_value (
+                    test.compare_with,
+                    compare_with,
+                    T.equals,
+                    equals
+                ),
+                input
+            })
+        );
     };
 };
 
@@ -776,21 +792,40 @@ const predicate_builder = function ({T, compare_with, input}) {
 // then a test configuration object with inputs for the evaluator function,
 // and returns an array of JSCheck test objects
 //[{name, T -> args_obj] -> {} -> [{}]
-const test_builder = function (tests) {
-
+const test_builder = function (test_list) {
     //{T, [{signature_object}], compare_with, input}
     return function (test_config) {
 
+// test_config can specify a custom predicate
+        const test_predicate = (
+            (test_config.predicate === undefined)
+            ? default_predicate
+            : test_config.predicate
+        );
+
+        // /{name, T -> args_obj} -> {jscheck test object}
         const test_mapper = function (test) {
+
+// feed the predicate processed test components
+            const predicate_mapper = function (predicate) {
+                return function (verdict) {
+                    return compose (
+                        predicate (verdict)
+                    ) (
+                        test_prep (test_config) (test)
+                    );
+                };
+            };
+
             return {
                 name: test.name,
-                predicate: predicate_builder (test_config) (test),
+                predicate: predicate_mapper (test_predicate),
                 signature: test_config.signature
 //                classifier: test_input.classifier (optional)
             };
         };
 
-        const comparison_zipper = function (test) {
+        const compare_zipper = function (test) {
             return function (compare_with) {
                 return object_concat (test) ({compare_with});
             };
@@ -800,8 +835,8 @@ const test_builder = function (tests) {
         // each test. Add the comparison to each test object before mapping.
         return array_map (test_mapper) (
             Array.isArray(test_config.compare_with)
-            ? array_zip (comparison_zipper) (tests) (test_config.compare_with)
-            : tests
+            ? array_zip (compare_zipper) (test_list) (test_config.compare_with)
+            : test_list
         );
     };
 };
@@ -836,19 +871,20 @@ const tests = object_map (test_builder) ({
     ord
 });
 
-// Function from dictionary of test specification objects to a two-deep array
-// of JSCheck inputs
+// Function from dictionary of test specification objects
+//          to a two-deep array of JSCheck inputs
 // {{a}} -> [[{b}]]
 const spec_mapper = converge (
     array_map
 ) (
+// mapping fx, takes spec object and applies matching test fx to it
     compose (ap (prop_of (tests))) (prop_of)
 ) (
     Object.keys
 );
 
-// Function from dictionary of test specification objects to
-// array of JSCheck inputs
+// Function from dictionary of test specification objects
+//          to array of JSCheck inputs
 // {test: {T, signature, compare_with, input}} -> [{name, predicate, signature}]
 // {{a}} -> [{b}]
 export default Object.freeze(
