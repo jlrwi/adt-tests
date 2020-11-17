@@ -303,9 +303,9 @@ const profunctor = [
     {
         name: "Profunctor: Identity",
         evaluator: function (T) {
-            return function ({g}) {
-                const left = T.promap (identity) (identity) (g);
-                const right = g;
+            return function ({a}) {
+                const left = T.promap (identity) (identity) (a);
+                const right = a;
                 return {left, right};
             };
         }
@@ -314,11 +314,7 @@ const profunctor = [
         name: "Profunctor: Composition",
         evaluator: function (T) {
             return function ({f, g, h, i, a}) {
-                const left = T.promap (function (x) {
-                    return f (g (x));
-                }) (function (x) {
-                    return h (i (x));
-                }) (a);
+                const left = T.promap (compose (f) (g)) (compose (h) (i)) (a);
                 const right = T.promap (g) (h) (
                     T.promap (f) (i) (a)
                 );
