@@ -1,14 +1,14 @@
 {
-  "name": "@jlrwi/adt_tests",
-  "version": "1.0.0",
-  "description": "JSCheck tests for Static Land algebras",
+  "name": "@jlrwi/adt-tests",
+  "version": "2.0.0",
+  "description": "JSCheck tests for curried Static Land algebras",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@jlrwi/combinators": "file:../combinators",
-    "@jlrwi/esfunctions": "file:../esfunctions"
+    "@jlrwi/combinators": "github:jlrwi/combinators",
+    "@jlrwi/esfunctions": "github:jlrwi/esfunctions"
   },
   "author": "Jonathan Reimer",
   "license": "ISC",
